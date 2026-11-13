@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""First load with no pets: put the bundled command line at ~/.local/bin/omarchy-pets if absent, install the default pet, then never again."""
+"""First load with no pets: install CLI and default pet."""
 
 import fcntl
 import io
@@ -21,7 +21,7 @@ def say(text):
 
 
 def has_pets(pets):
-    """What the plugin would show: the scanner's own verdict, one "pet" line per usable folder."""
+    """True when the scanner accepts at least one pet."""
     if not os.path.isdir(pets):
         return False
     done = subprocess.run([sys.executable, "-B", SCAN, pets], capture_output=True, text=True, timeout=TIMEOUT)
@@ -29,7 +29,7 @@ def has_pets(pets):
 
 
 def zipapp_bytes():
-    """The same layout the site builds: omarchy_pets/*.py plus a root __main__.py, stored, behind a python3 shebang."""
+    """The site's zipapp layout behind a python3 shebang."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as archive:
         source = os.path.join(CLI, "omarchy_pets")
@@ -42,7 +42,7 @@ def zipapp_bytes():
 
 
 def install_cli(target):
-    """Writes the command only when nothing is there; a file the user put there is theirs."""
+    """Write the CLI only where no file exists."""
     if os.path.lexists(target):
         say(f"{target} exists, left as it is")
         return False
@@ -63,8 +63,7 @@ def install_cli(target):
 
 
 def install_pet(pet_id):
-    """The bundled package installs the pet; no terminal, so the Codex copy question is left for the user's first command.
-    No bytecode is written: a file appearing under the plugin folder makes the shell reload the plugin."""
+    """No bytecode: plugin-folder writes make the shell reload."""
     env = {**os.environ, "PYTHONPATH": CLI, "PYTHONDONTWRITEBYTECODE": "1"}
     done = subprocess.run(
         [sys.executable, "-B", "-m", "omarchy_pets", "install", pet_id],
@@ -86,8 +85,7 @@ def write_marker(path, text):
 
 
 def hold_lock(path):
-    """The one bootstrap at a time: an OS lock on a file that is never unlinked, released by the kernel when the holder dies.
-    A second bootstrap waits for the first, so its caller rescans after the pet is there."""
+    """Kernel flock; a second bootstrap waits for the first."""
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
     waited = False
     deadline = time.monotonic() + TIMEOUT + 30
@@ -122,7 +120,7 @@ def main():
         say(str(error))
         return 1
     try:
-        # Another bootstrap may have finished between the checks above and the lock.
+        # Recheck under the lock.
         if os.path.lexists(marker) or has_pets(pets):
             say("the other bootstrap finished" if waited else "done meanwhile")
             return 0

@@ -16,7 +16,7 @@ QtObject {
   // One line per entry: "pet\t<dir>\t<json>" or "skip\t<dir>\t<reason>".
   readonly property string scanner: String(Qt.resolvedUrl("scan.py")).replace(/^file:\/\//, "")
   readonly property int scanTimeoutSec: 10
-  // With no pets, bootstrap.py runs once per shell session: the bundled command line, then the default pet.
+  // No pets: bootstrap.py runs once per shell session.
   readonly property string bootstrapper: String(Qt.resolvedUrl("bootstrap.py")).replace(/^file:\/\//, "")
   readonly property int bootstrapTimeoutSec: 180
   property bool bootstrapTried: false
@@ -55,12 +55,12 @@ QtObject {
   }
 
   function apply(next) {
-    // Compared without the sheets: serialising them costs hundreds of MB. An empty first scan equals the empty start, so the bootstrap check comes before that shortcut.
-    var key = next.map(function(pet) { return [pet.name, pet.displayName, pet.kind, pet.digest].join("\t") }).join("\n")
+    // Key omits sheets; serialising them costs hundreds of MB.
+    const key = next.map(function(pet) { return [pet.name, pet.displayName, pet.kind, pet.digest].join("\t") }).join("\n")
     if (key !== petsKey) {
       petsKey = key
       pets = next
-      var names = next.map(function(pet) { return pet.name }).join(", ")
+      const names = next.map(function(pet) { return pet.name }).join(", ")
       console.log("omarchy-pets: " + next.length + " pet(s) in " + petsDir + (names ? ": " + names : ""))
     }
     if (next.length === 0 && !bootstrapTried) {

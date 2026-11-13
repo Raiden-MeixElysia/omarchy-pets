@@ -10,7 +10,7 @@ anywhere on the screen.
 
 ## Requirements
 
-- Omarchy 4 (Quattro) with its Quickshell bar, `omarchy-shell`, on Hyprland.
+- Omarchy 4.5 with its Quickshell bar, `omarchy-shell`, on Hyprland.
 - `python3`, which every Omarchy install already has (the base packages
   `uwsm`, `ufw` and `udiskie` depend on it). It checks each pet's `pet.json`
   and sprite sheet when the panel opens.
@@ -25,8 +25,12 @@ anywhere on the screen.
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/ZacharyZhang-NY/omarchy-pets.git --enable
+omarchy plugin add https://github.com/Raiden-MeixElysia/omarchy-pets.git --enable
 ```
+
+The plugin id is `io.github.raiden-meixelysia.omarchy-pets`. If you have the
+old `raiden-meixelysia.omarchy-pets`, remove it first:
+`omarchy plugin remove raiden-meixelysia.omarchy-pets`.
 
 On the first load the plugin installs the command line and `guga` (see
 "What it touches"), and the pet appears on the desktop. The bar shows the
@@ -58,7 +62,7 @@ All of them live in the widget's entry in `~/.config/omarchy/shell.json` and
 can be set from the CLI:
 
 ```sh
-omarchy bar set raiden-meixelysia.omarchy-pets smooth false --json
+omarchy bar set io.github.raiden-meixelysia.omarchy-pets smooth false --json
 ```
 
 | Key | Type | Default | Meaning |
@@ -107,7 +111,7 @@ omarchy bar set raiden-meixelysia.omarchy-pets smooth false --json
 ## Remove
 
 ```sh
-omarchy plugin remove raiden-meixelysia.omarchy-pets
+omarchy plugin remove io.github.raiden-meixelysia.omarchy-pets
 ```
 
 This deletes the plugin folder after taking a backup. The widget's settings
@@ -118,9 +122,10 @@ clean file. `~/.omarchy-pets/pets/` is untouched.
 
 ```sh
 omarchy plugin validate .
-/usr/lib/qt6/bin/qmllint -I "$OMARCHY_PATH/shell" *.qml
+mkdir -p /tmp/qs-import && ln -sfn "$OMARCHY_PATH/shell" /tmp/qs-import/qs
+/usr/lib/qt6/bin/qmllint -I /tmp/qs-import *.qml
 /usr/lib/qt6/bin/qmltestrunner -input test
-python3 -m unittest discover -s test -p 'test_scan.py'
+python3 -m unittest discover -s test -p 'test_*.py'
 ```
 
 The plugin runs inside `omarchy-shell`; after changing files under

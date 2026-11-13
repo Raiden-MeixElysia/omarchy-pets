@@ -1,13 +1,12 @@
 .pragma library
 
-// The bar re-injects a reloaded widget with the settings its slot was built with; the stored entry is current.
-function current(barConfig, id, injected) {
+// Stored entry wins; a reload injects stale settings.
+function current(barConfig, id, injected, sections) {
   var layout = barConfig ? barConfig.layout : null
   if (!layout) return injected
-  var regions = ["left", "center", "right"]
-  for (var r = 0; r < regions.length; r++) {
-    // A facade built by createObject holds Qt sequences, which Array.isArray rejects.
-    var entries = layout[regions[r]] || []
+  for (var r = 0; r < sections.length; r++) {
+    // Facade arrays are Qt sequences; Array.isArray rejects them.
+    var entries = layout[sections[r]] || []
     for (var i = 0; i < entries.length; i++) {
       var entry = entries[i]
       if (entry === id) return {}

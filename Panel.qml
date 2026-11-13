@@ -8,7 +8,7 @@ import qs.Ui
 
 Panel {
   id: root
-  moduleName: "raiden-meixelysia.omarchy-pets"
+  moduleName: "io.github.raiden-meixelysia.omarchy-pets"
   manageIpc: false
 
   property var anchorItem: null
@@ -22,7 +22,7 @@ Panel {
   readonly property bool animate: root.setting("animate", true) === true
   readonly property bool randomBehavior: root.setting("randomBehavior", true) === true
   readonly property bool pinned: root.setting("pinned", true) === true
-  // The pet lives on the desktop while the panel is closed; an open panel shows it inside.
+  // Desktop while closed; inside the panel while open.
   readonly property bool onDesktop: pinned && !opened
   readonly property int pinnedX: root.setting("pinnedX", -1)
   readonly property int pinnedY: root.setting("pinnedY", -1)
@@ -53,14 +53,6 @@ Panel {
   onOpenedChanged: {
     if (opened) library.rescan()
     else showAll = false
-  }
-  function open() {
-    root.controller.show()
-  }
-
-  function toggle() {
-    if (!opened) open()
-    else close()
   }
 
   function dragPet(dx, dy) {
@@ -169,7 +161,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(320))
-    contentHeight: panel.fittedContentHeight(content.implicitHeight)
+    contentHeight: panel.fittedContentHeight(cardContent.implicitHeight)
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -177,149 +169,149 @@ Panel {
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
-      // The card is capped at the screen; what does not fit scrolls, as the clock panel does.
+      // Scrolls when the card outgrows the screen.
       Flickable {
         id: cardScroll
         anchors.fill: parent
         contentWidth: width
-        contentHeight: content.implicitHeight
+        contentHeight: cardContent.implicitHeight
         clip: true
         boundsBehavior: Flickable.StopAtBounds
         interactive: contentHeight > height
 
-      Column {
-        id: content
-        width: cardScroll.width
-        spacing: Style.space(10)
+        Column {
+          id: cardContent
+          width: cardScroll.width
+          spacing: Style.space(10)
 
-        Item {
-          id: panelSlot
-          visible: root.currentPet !== null
-          anchors.horizontalCenter: parent.horizontalCenter
-          width: stage.width
-          height: stage.height
-        }
+          Item {
+            id: panelSlot
+            visible: root.currentPet !== null
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: stage.width
+            height: stage.height
+          }
 
-        Text {
-          width: parent.width
-          textFormat: Text.PlainText
-          text: root.currentPet ? root.currentPet.displayName : "Pets"
-          color: root.barForeground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.subtitle
-          font.bold: true
-          elide: Text.ElideRight
-        }
+          Text {
+            width: parent.width
+            textFormat: Text.PlainText
+            text: root.currentPet ? root.currentPet.displayName : "Pets"
+            color: root.barForeground
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.subtitle
+            font.bold: true
+            elide: Text.ElideRight
+          }
 
-        Text {
-          visible: library.pets.length === 0
-          width: parent.width
-          textFormat: Text.PlainText
-          text: "No pets in " + root.petsDir + "\nGet omarchy-pets from omarchy-pets.com/cli, then run omarchy-pets install <id>"
-          color: Qt.darker(root.barForeground, 1.5)
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.bodySmall
-          wrapMode: Text.WrapAnywhere
-        }
+          Text {
+            visible: library.pets.length === 0
+            width: parent.width
+            textFormat: Text.PlainText
+            text: "No pets in " + root.petsDir + "\nRun omarchy-pets install <id>; find pets at omarchy-pets.com"
+            color: Qt.darker(root.barForeground, 1.5)
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.WrapAnywhere
+          }
 
-        Button {
-          visible: root.showAll
-          width: parent.width
-          leftAlign: true
-          iconText: "\uf053"
-          text: "Back"
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: root.showAll = false
-        }
-
-        ListView {
-          visible: library.pets.length > 0
-          width: parent.width
-          height: Math.min(contentHeight, Style.space(320))
-          spacing: Style.space(4)
-          clip: true
-          boundsBehavior: Flickable.StopAtBounds
-          interactive: contentHeight > height
-          model: root.showAll ? library.pets : library.pets.slice(0, root.previewCount)
-
-          ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-          delegate: PetRow {
-            required property var modelData
-            width: ListView.view.width
-            pet: modelData
-            current: root.currentPet !== null && root.currentPet.name === modelData.name
+          Button {
+            visible: root.showAll
+            width: parent.width
+            leftAlign: true
+            iconText: "\uf053"
+            text: "Back"
             foreground: root.barForeground
             fontFamily: root.fontFamily
-            smoothScaling: root.smoothScaling
-            fill: root.hoverFill
-            currentFill: root.selectedFill
-            onClicked: root.saveSettings({ petId: modelData.name })
+            onClicked: root.showAll = false
+          }
+
+          ListView {
+            visible: library.pets.length > 0
+            width: parent.width
+            height: Math.min(contentHeight, Style.space(320))
+            spacing: Style.space(4)
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            interactive: contentHeight > height
+            model: root.showAll ? library.pets : library.pets.slice(0, root.previewCount)
+
+            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+
+            delegate: PetRow {
+              required property var modelData
+              width: ListView.view.width
+              pet: modelData
+              current: root.currentPet !== null && root.currentPet.name === modelData.name
+              foreground: root.barForeground
+              fontFamily: root.fontFamily
+              smoothScaling: root.smoothScaling
+              fill: root.hoverFill
+              currentFill: root.selectedFill
+              onClicked: root.saveSettings({ petId: modelData.name })
+            }
+          }
+
+          Button {
+            visible: !root.showAll && library.pets.length > root.previewCount
+            width: parent.width
+            leftAlign: true
+            iconText: "\uf054"
+            text: "View all " + library.pets.length + " pets"
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
+            onClicked: root.showAll = true
+          }
+
+          Button {
+            width: parent.width
+            leftAlign: true
+            iconText: "\uf08e"
+            text: "Open omarchy-pets.com"
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
+            onClicked: Quickshell.execDetached(["omarchy", "launch", "browser", "https://omarchy-pets.com"])
+          }
+
+          Toggle {
+            width: parent.width
+            label: "Show on desktop"
+            description: "Stays on the desktop when the panel closes; drag it anywhere"
+            checked: root.pinned
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
+            onClicked: root.saveSettings({ pinned: !root.pinned })
+          }
+
+          Toggle {
+            width: parent.width
+            label: "Smooth scaling"
+            description: "Turn off for pixel-art pets"
+            checked: root.smoothScaling
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
+            onClicked: root.saveSettings({ smooth: !root.smoothScaling })
+          }
+
+          Toggle {
+            width: parent.width
+            label: "Random behaviour"
+            description: "A move of its own every 8-20 seconds"
+            checked: root.randomBehavior
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
+            onClicked: root.saveSettings({ randomBehavior: !root.randomBehavior })
+          }
+
+          Toggle {
+            width: parent.width
+            label: "Animate"
+            description: "Off shows one still frame and runs no timer"
+            checked: root.animate
+            foreground: root.barForeground
+            fontFamily: root.fontFamily
+            onClicked: root.saveSettings({ animate: !root.animate })
           }
         }
-
-        Button {
-          visible: !root.showAll && library.pets.length > root.previewCount
-          width: parent.width
-          leftAlign: true
-          iconText: "\uf054"
-          text: "View all " + library.pets.length + " pets"
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: root.showAll = true
-        }
-
-        Button {
-          width: parent.width
-          leftAlign: true
-          iconText: "\uf08e"
-          text: "Open omarchy-pets.com"
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: Quickshell.execDetached(["omarchy", "launch", "browser", "https://omarchy-pets.com"])
-        }
-
-        Toggle {
-          width: parent.width
-          label: "Show on desktop"
-          description: "Stays on the desktop when the panel closes; drag it anywhere"
-          checked: root.pinned
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: root.saveSettings({ pinned: !root.pinned })
-        }
-
-        Toggle {
-          width: parent.width
-          label: "Smooth scaling"
-          description: "Turn off for pixel-art pets"
-          checked: root.smoothScaling
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: root.saveSettings({ smooth: !root.smoothScaling })
-        }
-
-        Toggle {
-          width: parent.width
-          label: "Random behaviour"
-          description: "A move of its own every 8-20 seconds"
-          checked: root.randomBehavior
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: root.saveSettings({ randomBehavior: !root.randomBehavior })
-        }
-
-        Toggle {
-          width: parent.width
-          label: "Animate"
-          description: "Off shows one still frame and runs no timer"
-          checked: root.animate
-          foreground: root.barForeground
-          fontFamily: root.fontFamily
-          onClicked: root.saveSettings({ animate: !root.animate })
-        }
-      }
       }
     }
   }

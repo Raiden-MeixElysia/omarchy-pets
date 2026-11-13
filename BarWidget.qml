@@ -6,12 +6,12 @@ import "Settings.js" as Settings
 
 BarWidget {
   id: root
-  moduleName: "raiden-meixelysia.omarchy-pets"
+  moduleName: "io.github.raiden-meixelysia.omarchy-pets"
 
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
   readonly property var pet: panelLoader.item ? panelLoader.item.currentPet : null
-  readonly property var entry: Settings.current(root.bar && root.bar.shell ? root.bar.shell.barConfig : null, root.moduleName, root.settings)
+  readonly property var entry: Settings.current(root.bar && root.bar.shell ? root.bar.shell.barConfig : null, root.moduleName, root.settings, Util.barSections)
   readonly property bool smoothScaling: entry.smooth === undefined || entry.smooth === null || entry.smooth === true
 
   function open() { if (panelLoader.item) panelLoader.item.open() }

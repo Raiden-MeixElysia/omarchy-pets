@@ -1,4 +1,4 @@
-"""bootstrap.py against a temp home and a local server: the command line lands, the default pet lands, and it runs once."""
+"""bootstrap.py against a temp home and a local server."""
 
 import hashlib
 import http.server
@@ -72,6 +72,7 @@ class BootstrapTests(unittest.TestCase):
 
     def tearDown(self):
         self.httpd.shutdown()
+        self.httpd.server_close()
         self.home.cleanup()
 
     def run_script(self):
@@ -81,7 +82,9 @@ class BootstrapTests(unittest.TestCase):
     def test_first_load_writes_the_command_line_and_the_default_pet_then_stops(self):
         done = self.run_script()
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertEqual(stat.S_IMODE(os.stat(self.cli).st_mode), 0o755)
+        umask = os.umask(0)
+        os.umask(umask)
+        self.assertEqual(stat.S_IMODE(os.stat(self.cli).st_mode), 0o755 & ~umask)
         version = subprocess.run([self.cli, "--version"], capture_output=True, text=True)
         self.assertRegex(version.stdout, r"^omarchy-pets \d+\.\d+\.\d+")
         with open(os.path.join(self.pets, "guga", "spritesheet.webp"), "rb") as handle:
