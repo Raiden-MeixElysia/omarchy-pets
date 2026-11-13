@@ -1,4 +1,4 @@
-"""The Codex Pets package rules (PRD F4), mirrored from src/lib/package.ts with the same messages."""
+"""Codex Pets package rules, same messages as the site."""
 
 import hashlib
 import io
@@ -50,7 +50,7 @@ def parse_manifest(data):
         raise PackageError("pet.json is larger than 64 KiB")
     try:
         raw = json.loads(data.decode("utf-8-sig"))
-    except (UnicodeDecodeError, ValueError):
+    except (UnicodeDecodeError, ValueError, RecursionError):
         raise PackageError("pet.json is not valid JSON") from None
     if not isinstance(raw, dict):
         raise PackageError("pet.json must be a JSON object")
@@ -79,7 +79,7 @@ def parse_manifest(data):
 
 
 def canonical_manifest(manifest):
-    """The six known keys in upstream order, two-space indent, trailing newline."""
+    """Known keys in upstream order, two-space indent."""
     ordered = {
         "id": manifest["id"],
         "displayName": manifest["displayName"],
@@ -112,7 +112,7 @@ def _framed(canvas, frame):
 
 
 def webp_size(data):
-    """Width and height from the container; a VP8X canvas must equal its frame; animation is refused."""
+    """Width and height; refuse animation and mismatched canvas."""
     if len(data) < 20 or data[0:4] != b"RIFF" or data[8:12] != b"WEBP":
         raise PackageError("spritesheet.webp is not a WebP file")
     canvas = None
@@ -156,7 +156,7 @@ def sha256_hex(data):
 
 
 def read_package_zip(data):
-    """The two files of a downloaded package; anything else in the zip is refused before it is read."""
+    """Read pet.json and spritesheet.webp; refuse anything else."""
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:

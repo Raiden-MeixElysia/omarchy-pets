@@ -1,4 +1,4 @@
-"""HTTP, the credentials file and the multipart body. Everything talks to one origin."""
+"""HTTP, credentials and multipart bodies for one origin."""
 
 import http.client
 import json
@@ -30,13 +30,13 @@ class ServerError(Exception):
 
 
 class CredentialsError(Exception):
-    """The local credentials file is unreadable or not ours; the user fixes it or signs in again."""
+    """The credentials file is unreadable or malformed."""
 
 
 def _decode(status, raw):
     try:
         data = json.loads(raw.decode("utf-8")) if raw else {}
-    except ValueError:
+    except (ValueError, RecursionError):
         data = None
     if isinstance(data, dict):
         return data
@@ -46,7 +46,7 @@ def _decode(status, raw):
 
 
 def pick(data, *keys, kind=None):
-    """A field the API promises, nested keys walked in order and typed; a miss is the server's fault, not the user's."""
+    """A typed nested field; a miss is a ServerError."""
     for key in keys:
         if not isinstance(data, dict) or key not in data:
             raise ServerError(f'the server\'s answer lacks "{key}"')
@@ -75,7 +75,7 @@ def read_credentials():
             data = json.load(handle)
     except FileNotFoundError:
         return None
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, RecursionError) as error:
         raise CredentialsError(f"cannot read {credentials_path()}: {error}") from None
     if not isinstance(data, dict) or not isinstance(data.get("token"), str) or not isinstance(data.get("api_base"), str):
         raise CredentialsError(f"{credentials_path()} holds no token; run omarchy-pets login")
@@ -83,7 +83,7 @@ def read_credentials():
 
 
 def bound_credentials():
-    """The credentials for the current API base only; a token never travels to another origin."""
+    """Credentials for this API base only."""
     credentials = read_credentials()
     if credentials and credentials["api_base"].rstrip("/") != api_base():
         raise CredentialsError(
@@ -93,7 +93,7 @@ def bound_credentials():
 
 
 def write_credentials(data):
-    """Mode 0600 inside a 0700 directory, written through a temporary file and a rename."""
+    """Mode 0600 in a 0700 directory, via rename."""
     directory = config_dir()
     os.makedirs(directory, mode=0o700, exist_ok=True)
     os.chmod(directory, 0o700)
@@ -144,7 +144,7 @@ def request(method, path, body=None, headers=None, token=None, timeout=60):
 
 
 def api_json(method, path, payload=None, token=None):
-    """A JSON exchange; 4xx and 5xx become ApiError with the server's message."""
+    """JSON exchange; 4xx and 5xx raise ApiError."""
     body = None
     headers = {"Accept": "application/json"}
     if payload is not None:
@@ -167,7 +167,7 @@ def download(path, token=None):
 
 
 def multipart(fields, files):
-    """A multipart/form-data body: fields are strings, files are (filename, bytes, content type)."""
+    """multipart/form-data body from fields and (name, bytes, type) files."""
     boundary = f"----omarchy-pets-{uuid.uuid4().hex}"
     out = bytearray()
     for name, value in fields.items():

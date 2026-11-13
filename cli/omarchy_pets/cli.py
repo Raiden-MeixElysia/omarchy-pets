@@ -1,4 +1,4 @@
-"""The verbs. Exit 0 on success, 1 on a user error, 2 on a network or server error; --json prints one object."""
+"""Verbs. Exit 0 ok, 1 user error, 2 network or server."""
 
 import argparse
 import json
@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import time
+import urllib.parse
 
 from . import VERSION, api
 from .api import ApiError, CredentialsError, NetworkError, ServerError, pick
@@ -47,7 +48,7 @@ def require_token():
 
 
 def pet_files(directory, pet_id):
-    """pet.json and spritesheet.webp of <dir>/<id>/, read without following a link below the root."""
+    """Read a local pet's two files without following links."""
     try:
         root = open_root(directory)
     except FsError as error:
@@ -72,7 +73,7 @@ def pet_files(directory, pet_id):
 
 
 def open_browser(url):
-    """`omarchy launch browser`, then `xdg-open`; True when one of them accepted the address."""
+    """Try `omarchy launch browser`, then `xdg-open`."""
     for command in (["omarchy", "launch", "browser", url], ["xdg-open", url]):
         try:
             done = subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
@@ -132,10 +133,13 @@ def cmd_whoami(args):
 
 
 def cmd_install(args):
+    if args.id and args.collection:
+        raise UserError("give a pet id or --collection, not both")
     directory = args.dir or ready_dir()
     ids = [args.id] if args.id else []
     if args.collection:
-        ids = [pick(pet, "id", kind=str) for pet in pick(api.api_json("GET", f"/api/collections/{args.collection}"), "pets", kind=list)]
+        slug = urllib.parse.quote(args.collection, safe="")
+        ids = [pick(pet, "id", kind=str) for pet in pick(api.api_json("GET", f"/api/collections/{slug}"), "pets", kind=list)]
         if not ids:
             raise UserError(f'the collection "{args.collection}" is empty')
     if not ids:
@@ -147,7 +151,7 @@ def cmd_install(args):
 
 
 def ask(prompt):
-    """A question on stderr, so stdout stays the result (one JSON object with --json); end of input cancels."""
+    """Ask on stderr; stdout stays the result."""
     print(prompt, end="", file=sys.stderr, flush=True)
     try:
         return input().strip().lower()
@@ -202,7 +206,7 @@ def cmd_upload(args):
     except ApiError as error:
         if error.status != 409 or not isinstance(error.data.get("code"), str):
             raise
-        # Someone else won between the probe and the post; the same rules answer.
+        # Lost a race after the probe; same rules apply.
         return duplicate_verdict(error.data["code"], error.data, published_id, args.update)
     verb = "Replaced" if status == "replace" else "Published"
     return {
@@ -216,7 +220,7 @@ def cmd_upload(args):
 
 
 def duplicate_verdict(status, found, published_id, update):
-    """The F4 duplicate table as the CLI states it; a result to print, None to go on, or a UserError."""
+    """Duplicate verdict: a result, None to continue, or UserError."""
     if status == "published":
         return {"ok": True, "status": "published", "id": published_id, "url": pet_url(published_id), "message": f"already published as {published_id}: {pet_url(published_id)}"}
     if status == "replace" and not update:
@@ -231,7 +235,7 @@ def duplicate_verdict(status, found, published_id, update):
 
 
 def ready_dir():
-    """~/.omarchy-pets/pets, made on first use. Until the marker beside it records an answer, Codex pets missing here are offered as copies; the originals stay."""
+    """Make the pets directory; offer Codex pets once."""
     directory = default_dir()
     source = codex_dir()
     os.makedirs(directory, mode=0o755, exist_ok=True)
@@ -264,7 +268,7 @@ def ready_dir():
             if pet_dir is None:
                 raise UserError(f"{os.path.join(directory, pet_id)} is a symlink or a file; refusing to write there")
             try:
-                # A pet that arrived while the question was open is not touched; `install --force` is the way to replace one.
+                # Never overwrite; `install --force` replaces.
                 if read_regular(pet_dir, "spritesheet.webp", MAX_SHEET_BYTES) is not None:
                     print(f"skipped {pet_id}: already there", file=sys.stderr)
                     continue
@@ -283,7 +287,7 @@ def ready_dir():
 
 
 def write_marker(path, answer):
-    """One line, so the question is not asked again; delete the file to be asked once more. Created exclusively, so a link planted meanwhile is never followed and an answer already there wins."""
+    """Record the answer once; an existing marker wins."""
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
     except FileExistsError:
@@ -293,7 +297,7 @@ def write_marker(path, answer):
 
 
 def local_pets(directory):
-    """Every <dir>/*/ with a valid manifest and sheet header; the rest is skipped with a reason."""
+    """Valid pets in a directory, plus skipped ones with reasons."""
     pets, skipped = [], []
     try:
         root = open_root(directory)
@@ -331,7 +335,7 @@ def remote_pets(token):
     handle = pick(api.api_json("GET", "/api/me", token=token), "user", "handle", kind=str)
     pets, page = [], 1
     while True:
-        data = api.api_json("GET", f"/api/pets?owner={handle}&pageSize=60&page={page}", token=token)
+        data = api.api_json("GET", f"/api/pets?owner={urllib.parse.quote(handle, safe='')}&pageSize=60&page={page}", token=token)
         for pet in pick(data, "pets", kind=list):
             pet_id = pick(pet, "id", kind=str)
             pets.append({"id": pet_id, "displayName": pick(pet, "displayName", kind=str), "version": pick(pet, "validationReport", "spriteVersionNumber", kind=int), "url": pet_url(pet_id)})
@@ -357,7 +361,7 @@ def cmd_list(args):
 
 
 class Parser(argparse.ArgumentParser):
-    """argparse that reports usage mistakes through the CLI's own error contract."""
+    """argparse that raises UsageError instead of exiting."""
 
     def error(self, message):
         raise UsageError(message)
@@ -367,19 +371,22 @@ def build_parser():
     parser = Parser(prog="omarchy-pets", description="Pets for the Omarchy bar, from omarchy-pets.com.")
     parser.add_argument("--version", action="version", version=f"omarchy-pets {VERSION}")
     parser.add_argument("--json", action="store_true", help="print one JSON object instead of prose")
+    # Lets --json follow the verb too.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="print one JSON object instead of prose")
     verbs = parser.add_subparsers(dest="verb", required=True)
-    login = verbs.add_parser("login", help="sign in through the browser")
+    login = verbs.add_parser("login", parents=[common], help="sign in through the browser")
     login.add_argument("--no-browser", action="store_true", help="print the address instead of opening it")
     login.set_defaults(run=cmd_login)
-    verbs.add_parser("logout", help="revoke this machine's token").set_defaults(run=cmd_logout)
-    verbs.add_parser("whoami", help="show the signed-in account").set_defaults(run=cmd_whoami)
-    inst = verbs.add_parser("install", help="install a pet into the pets directory")
+    verbs.add_parser("logout", parents=[common], help="revoke this machine's token").set_defaults(run=cmd_logout)
+    verbs.add_parser("whoami", parents=[common], help="show the signed-in account").set_defaults(run=cmd_whoami)
+    inst = verbs.add_parser("install", parents=[common], help="install a pet into the pets directory")
     inst.add_argument("id", nargs="?")
     inst.add_argument("--collection", metavar="SLUG", help="install every pet of a collection")
     inst.add_argument("--force", action="store_true", help="replace a different local sheet")
     inst.add_argument("--dir", help="pets directory (default: ~/.omarchy-pets/pets)")
     inst.set_defaults(run=cmd_install)
-    up = verbs.add_parser("upload", help="publish a local pet")
+    up = verbs.add_parser("upload", parents=[common], help="publish a local pet")
     up.add_argument("id")
     up.add_argument("--as", dest="as_id", metavar="NEW-ID", help="publish under another id; the folder is untouched")
     up.add_argument("--kind", choices=PET_KINDS)
@@ -388,7 +395,7 @@ def build_parser():
     up.add_argument("--yes", action="store_true", help="confirm the licence without asking")
     up.add_argument("--dir", help="pets directory")
     up.set_defaults(run=cmd_upload)
-    lst = verbs.add_parser("list", help="list local pets, or your published ones")
+    lst = verbs.add_parser("list", parents=[common], help="list local pets, or your published ones")
     lst.add_argument("--remote", action="store_true")
     lst.add_argument("--dir", help="pets directory")
     lst.set_defaults(run=cmd_list)
@@ -406,7 +413,7 @@ def main(argv):
         return int(exit_.code or 0)
     try:
         result = args.run(args)
-    except (UserError, PackageError, InstallError, CredentialsError, RuntimeError) as error:
+    except (UserError, PackageError, InstallError, CredentialsError) as error:
         return fail(as_json, str(error), 1)
     except ApiError as error:
         return fail(as_json, str(error), 2 if error.status == 0 or error.status >= 500 else 1)

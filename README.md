@@ -15,7 +15,7 @@ anywhere on the screen.
   `uwsm`, `ufw` and `udiskie` depend on it). It checks each pet's `pet.json`
   and sprite sheet when the panel opens.
 - Pets live in `~/.omarchy-pets/pets/<id>/`. The plugin bundles the
-  `omarchy-pets` command line (`cli/`, the same source as
+  `omarchy-pets` command line (`cli/`, also served at
   <https://omarchy-pets.com/cli>) and, on its first load with no pets, puts
   it at `~/.local/bin/omarchy-pets` and installs the pet `guga` from
   omarchy-pets.com. `omarchy-pets install <id>` adds more; the command's

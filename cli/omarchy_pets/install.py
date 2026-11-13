@@ -1,4 +1,4 @@
-"""`install`: fetch, verify, and write exactly two files under <dir>/<id>/, through a directory descriptor."""
+"""`install`: fetch, verify, write pet.json and spritesheet.webp."""
 
 import os
 
@@ -26,7 +26,7 @@ def describe(pet_id):
 
 
 def fetch_package(pet_id, pet):
-    """The zip behind share-data, checked as PRD F6 says: two files, the id, the sheet, the hash."""
+    """Download and check the package: files, id, sheet, hash."""
     manifest_bytes, sheet = read_package_zip(api.download(api.pick(pet, "downloadUrl", kind=str)))
     manifest = parse_manifest(manifest_bytes)
     if manifest["id"] != pet_id:
@@ -39,7 +39,7 @@ def fetch_package(pet_id, pet):
 
 
 def _decide(existing_sha, published, target, pet_id, version, force):
-    """The F6 rule for a folder that already holds a sheet: same hash means done, another needs --force."""
+    """Same sheet is done; a different one needs --force."""
     if existing_sha == published:
         return {"status": "already installed", "id": pet_id, "path": target, "version": version}
     if existing_sha is not None and not force:
@@ -48,7 +48,7 @@ def _decide(existing_sha, published, target, pet_id, version, force):
 
 
 def install(pet_id, directory, force=False):
-    """Installs one pet. Every write goes through a descriptor of <dir>/<id>/, so a path swapped underneath is never followed."""
+    """Install one pet through directory descriptors."""
     try:
         root = open_root(directory)
     except FsError as error:
@@ -74,7 +74,7 @@ def install(pet_id, directory, force=False):
             pet_dir = open_child_dir(root, pet_id)
             if pet_dir is None:
                 raise InstallError(f"{target} vanished while the package was downloaded")
-        # Something else may have written the folder during the download; the same rule applies to what is there now.
+        # Recheck: another writer may have filled the folder.
         appeared = read_regular(pet_dir, "spritesheet.webp", MAX_SHEET_BYTES)
         existing_sha = sha256_hex(appeared) if appeared is not None else None
         done = _decide(existing_sha, published, target, pet_id, version, force)

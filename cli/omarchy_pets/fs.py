@@ -1,4 +1,4 @@
-"""Local files, the way the bar plugin reads them: no symlink followed below the root, regular files only, sizes bounded."""
+"""Bounded file access that follows no symlink below the root."""
 
 import os
 import stat
@@ -14,7 +14,7 @@ ROOT_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
 
 
 def open_root(path):
-    """The pets directory itself; it may be a symlink, because the user chose it."""
+    """Open the pets directory; a symlink here is allowed."""
     try:
         return os.open(path, ROOT_FLAGS)
     except FileNotFoundError:
@@ -24,7 +24,7 @@ def open_root(path):
 
 
 def open_child_dir(root_fd, name):
-    """A pet directory under the root, or None when absent; a symlink or a file in its place is refused."""
+    """Open a pet directory; None when absent, refuse symlinks."""
     try:
         return os.open(name, DIR_FLAGS, dir_fd=root_fd)
     except FileNotFoundError:
@@ -34,7 +34,7 @@ def open_child_dir(root_fd, name):
 
 
 def read_regular(dir_fd, name, cap):
-    """The bytes of a regular file under dir_fd, or None when absent; symlinks, pipes and oversized files are refused."""
+    """Bytes of a regular file; None when absent."""
     try:
         fd = os.open(name, READ_FLAGS, dir_fd=dir_fd)
     except FileNotFoundError:
@@ -63,7 +63,7 @@ def read_regular(dir_fd, name, cap):
 
 
 def replace_files(dir_fd, files):
-    """Writes every file to a temporary name first, then renames each into place; a failure leaves the old files."""
+    """Write temporaries, then rename each into place."""
     temps = {}
     try:
         for name, data in files.items():

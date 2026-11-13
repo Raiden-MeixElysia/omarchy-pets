@@ -21,9 +21,9 @@ from `~/.omarchy-pets/pets/`.
 | `PetSprite.qml`, `Sprite.js` | Atlas animation and pose tables |
 | `scan.py` | Validates pets; prints one line per entry, sheets inline |
 | `bootstrap.py` | First load: writes the CLI, installs `guga` |
-| `cli/` | The omarchy-pets.com CLI, byte-identical to the site's build |
+| `cli/` | The omarchy-pets.com CLI source |
 
-`cli/` is a copy. Change it in the site repository, then copy it here.
+`cli/` is the source. Bump `VERSION` and publish it to the site after a change.
 
 ## Shell APIs
 
